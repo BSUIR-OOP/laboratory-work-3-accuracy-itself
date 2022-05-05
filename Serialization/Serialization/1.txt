@@ -1,0 +1,90 @@
+using System.Text;
+using System.Xml.Serialization;
+
+namespace Serialization
+{
+    class Program
+    {
+        delegate void task_solver(int index, ref List<WritingMaterial> materials);  
+        struct tasks_structure 
+        {
+            public int number;
+            public string name;
+            public task_solver solver;
+            public tasks_structure(int number, string name, task_solver solver)
+            {
+                this.number = number;
+                this.name = name;
+                this.solver = solver;
+            }
+        }
+
+        public static void Enter_data(out int index, out int task_number)
+        {
+            string s;
+            s = Console.ReadLine();
+            int.TryParse(s, out index);
+            s = Console.ReadLine();
+            int.TryParse(s, out task_number);
+        }
+
+        public static void Edit(int index, ref List<WritingMaterial> materials)
+        {
+
+        }
+
+        public static void Add(int index, ref List<WritingMaterial> materials)
+        {
+            if (index > materials.Count)
+                index = materials.Count;
+            materials.Insert(index, new Pen());
+            
+        }
+
+        struct MaterialsInfoStruct
+        {
+
+        }
+        static void Main()
+        {
+            Console.WriteLine("hey");
+
+            List<WritingMaterial> materials = new List<WritingMaterial>();
+
+            List<tasks_structure> tasks = new List<tasks_structure>();
+            
+            tasks.Add(new tasks_structure(tasks.Count + 1, "edit", Edit));
+            tasks.Add(new tasks_structure(tasks.Count + 1, "add", Add));
+            tasks.Add(new tasks_structure(tasks.Count + 1, "remove", Edit));
+            tasks.Add(new tasks_structure(tasks.Count + 1, "serialize", Edit));
+            tasks.Add(new tasks_structure(tasks.Count + 1, "deserialize", Edit));
+            tasks.Add(new tasks_structure(tasks.Count + 1, "show", Edit));
+
+            StringBuilder hello_string = new StringBuilder();
+            hello_string.Append("Choose task and index: ");
+            foreach (var task in tasks)
+            {
+                hello_string.Append(task.number.ToString() + " - " + task.name + "  ");
+            }
+            /*
+            while (true)
+            {
+                int index, task_number;
+                Console.WriteLine(hello_string.ToString());
+                Enter_data(out index, out task_number);
+                
+                if ((index > 0) && (index <= tasks.Count))
+                {                    
+                    tasks[index].solver(index, ref materials);
+                }
+                else
+                    Console.WriteLine("no such task!");
+            }*/
+
+
+            materials.Add(new Pencil());
+            XmlSerializer serializer = new XmlSerializer(typeof(Pencil));
+
+        }
+    }
+}
