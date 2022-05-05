@@ -21,6 +21,31 @@ namespace Serialization
             }
         }
 
+        public static List<string> FileNames = new List<string>();
+
+        //gets names of serialized files
+        public static async void GetFileNames(List<string> file_names, string file)
+        {
+            using (StreamReader reader = new StreamReader(file))
+            {
+                string? line;
+                while ((line = await reader.ReadLineAsync()) != null)
+                {
+                    file_names.Add(line.Trim());
+                }
+            }
+        }
+        
+        //saves names of serialized files
+        public static async void SaveFileNames(List<string> file_names, string file)
+        {
+            using (StreamWriter writer = new StreamWriter(file))
+            {
+                foreach (string filename in file_names)
+                    await writer.WriteLineAsync(filename);
+            }
+        }
+        
         //adds object to list
         public static void TaskAdd(List<WritingMaterial> materials)
         {
@@ -100,15 +125,8 @@ namespace Serialization
         //edits the object
         public static bool EditMaterial(List<WritingMaterial> materials, int index, int field_number, string value)
         {   
-            Console.WriteLine(materials[index].Name);
             Type materialtype = materials[index].GetType();
             FieldInfo[] fields = materialtype.GetFields();
-            Console.WriteLine("index = " + index.ToString());
-            Console.WriteLine("number = " + field_number.ToString());
-            Console.WriteLine("value = " + value);
-
-            Console.WriteLine(fields[field_number].Name);
-            Console.WriteLine();
 
             try
             {
@@ -118,7 +136,6 @@ namespace Serialization
             {
                 try
                 {
-                    Console.WriteLine(fields[field_number].GetType());
                     fields[field_number].SetValue(materials[index], byte.Parse(value));
                 }
                 catch 
@@ -135,16 +152,10 @@ namespace Serialization
                         }
                         catch
                         {
-                            Console.WriteLine("CAN'T set such value!!!");
+                            return false;
                         }
                     }
                 }
-            }
-
-            foreach (FieldInfo field in fields)
-            {
-                Console.Write(field.Name + "  ");
-                Console.WriteLine(field.GetValue(materials[index]));
             }
             return true;
         }
@@ -163,38 +174,54 @@ namespace Serialization
                 {
                     Console.WriteLine("write value");
                     string value = Console.ReadLine();
-                    EditMaterial(materials, index, fieldNumber, value);
+                    bool edited = EditMaterial(materials, index, fieldNumber, value);
+                    if (!edited)
+                        Console.WriteLine("CAN'T set such value");
                 }
             }
             else
                 Console.WriteLine("enter NORMAL data!(please)");
         }
 
+        //XML serializing
         public static void TaskSerialize(List<WritingMaterial> materials)
         {
             XmlSerializer serializer = new XmlSerializer(typeof(WritingMaterial),
                 new Type[] { typeof(Pen), typeof(BallPen), typeof(GelPen), typeof(Brush), typeof(Pencil) });
-            using (FileStream fileStream = new FileStream("materials.xml", FileMode.OpenOrCreate))
+
+            string fileName;
+            int index = 0;
+            FileNames.Clear();
+            foreach (var material in materials)
             {
-                foreach (var material in materials)
+                fileName = index.ToString() + ".xml"; 
+                using (FileStream fileStream = new FileStream(fileName, FileMode.Create))
+                {
                     serializer.Serialize(fileStream, material);
+                }
+                FileNames.Add(fileName);
+                index++;
             }
         }
 
-        public static void TaskDeserialize(List<WritingMaterial> ?materials)
+        //XML deserializing
+        public static void TaskDeserialize(List<WritingMaterial>? materials)
         {
             XmlSerializer deserializer = new XmlSerializer(typeof(WritingMaterial), 
                 new Type[] { typeof(Pen), typeof(BallPen), typeof(GelPen), typeof(Brush), typeof(Pencil)});
             materials?.Clear();
             WritingMaterial? material = null;
-            using (FileStream fileStream = new FileStream("materials.xml", FileMode.OpenOrCreate))
+            foreach(var filename in FileNames)
             {
-                material = deserializer.Deserialize(fileStream) as WritingMaterial;
-                if(material != null)
-                    materials?.Add(material);
+                using (FileStream fileStream = new FileStream(filename, FileMode.OpenOrCreate))
+                {
+                    material = deserializer.Deserialize(fileStream) as WritingMaterial;
+                    if (material != null)
+                        materials?.Add(material);
+                }
             }
         }
-
+        
         //for gathering information about materials
         internal struct MaterialsInfoStruct
         {
@@ -214,14 +241,14 @@ namespace Serialization
         static void Main()
         {
             Console.WriteLine("hey");
-             
+            GetFileNames(FileNames, "filenames.txt");
+
             //getting constructors of materials
             foreach(var materialtype in MaterialTypes)
             {
                 Type type = Type.GetType(materialtype.FullName);
                 var constructor = type.GetConstructor(new Type[] { });
                 MaterialsInfo.Add(new MaterialsInfoStruct(materialtype.Name, constructor));
-                //Console.WriteLine(materialtype.Name);
             }
             
             //creating task list
@@ -233,13 +260,13 @@ namespace Serialization
             tasks.Add(new TasksStructure(tasks.Count + 1, "serialize", TaskSerialize));
             tasks.Add(new TasksStructure(tasks.Count + 1, "deserialize", TaskDeserialize));
 
-
             StringBuilder helloString = new StringBuilder();
-            helloString.Append("Choose task and index: ");
+            helloString.Append("Choose task: ");
             foreach (var task in tasks)
             {
                 helloString.Append(task.number.ToString() + " - " + task.name + "  ");
             }
+            helloString.Append((tasks.Count + 1).ToString() + " - exit");
             
             //choosing task
             while (true)
@@ -250,14 +277,21 @@ namespace Serialization
                 int taskNumber;
                 bool parsed = int.TryParse(s, out taskNumber);
                 if ((taskNumber > 0) && (taskNumber <= tasks.Count))
-                {                    
+                {
                     tasks[taskNumber - 1].solver(Materials);
+                }
+                else if (taskNumber == tasks.Count + 1)
+                {
+                    Console.WriteLine("Goodbye, my friend!");
+                    break;
                 }
                 else
                     Console.WriteLine("no such task!");
 
                 Console.WriteLine();
             }
+
+            SaveFileNames(FileNames, "filenames.txt");
         }
     }
 }
