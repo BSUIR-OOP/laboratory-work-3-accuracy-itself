@@ -170,6 +170,31 @@ namespace Serialization
                 Console.WriteLine("enter NORMAL data!(please)");
         }
 
+        public static void TaskSerialize(List<WritingMaterial> materials)
+        {
+            XmlSerializer serializer = new XmlSerializer(typeof(WritingMaterial),
+                new Type[] { typeof(Pen), typeof(BallPen), typeof(GelPen), typeof(Brush), typeof(Pencil) });
+            using (FileStream fileStream = new FileStream("materials.xml", FileMode.OpenOrCreate))
+            {
+                foreach (var material in materials)
+                    serializer.Serialize(fileStream, material);
+            }
+        }
+
+        public static void TaskDeserialize(List<WritingMaterial> ?materials)
+        {
+            XmlSerializer deserializer = new XmlSerializer(typeof(WritingMaterial), 
+                new Type[] { typeof(Pen), typeof(BallPen), typeof(GelPen), typeof(Brush), typeof(Pencil)});
+            materials?.Clear();
+            WritingMaterial? material = null;
+            using (FileStream fileStream = new FileStream("materials.xml", FileMode.OpenOrCreate))
+            {
+                material = deserializer.Deserialize(fileStream) as WritingMaterial;
+                if(material != null)
+                    materials?.Add(material);
+            }
+        }
+
         //for gathering information about materials
         internal struct MaterialsInfoStruct
         {
@@ -205,8 +230,8 @@ namespace Serialization
             tasks.Add(new TasksStructure(tasks.Count + 1, "remove", TaskRemove));
             tasks.Add(new TasksStructure(tasks.Count + 1, "edit", TaskEdit));
             tasks.Add(new TasksStructure(tasks.Count + 1, "show all", TaskShow));
-            //tasks.Add(new TasksStructure(tasks.Count + 1, "serialize", TaskSerialize));
-            //tasks.Add(new TasksStructure(tasks.Count + 1, "deserialize", TaskDeserialize));
+            tasks.Add(new TasksStructure(tasks.Count + 1, "serialize", TaskSerialize));
+            tasks.Add(new TasksStructure(tasks.Count + 1, "deserialize", TaskDeserialize));
 
 
             StringBuilder helloString = new StringBuilder();
@@ -233,9 +258,6 @@ namespace Serialization
 
                 Console.WriteLine();
             }
-
-            XmlSerializer serializer = new XmlSerializer(typeof(Pencil));
-
         }
     }
 }
