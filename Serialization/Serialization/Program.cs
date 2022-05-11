@@ -127,7 +127,9 @@ namespace Serialization
         {   
             Type materialtype = materials[index].GetType();
             FieldInfo[] fields = materialtype.GetFields();
-
+            //var b = 89;
+            //var cs = fields[field_number].FieldType.
+            
             try
             {
                 fields[field_number].SetValue(materials[index], double.Parse(value));
@@ -186,8 +188,7 @@ namespace Serialization
         //XML serializing
         public static void TaskSerialize(List<WritingMaterial> materials)
         {
-            XmlSerializer serializer = new XmlSerializer(typeof(WritingMaterial),
-                new Type[] { typeof(Pen), typeof(BallPen), typeof(GelPen), typeof(Brush), typeof(Pencil) });
+            XmlSerializer serializer = new XmlSerializer(typeof(Pen));
 
             string fileName;
             int index = 0;
@@ -197,7 +198,32 @@ namespace Serialization
                 fileName = index.ToString() + ".xml"; 
                 using (FileStream fileStream = new FileStream(fileName, FileMode.Create))
                 {
+                    //Console.WriteLine(material.GetType().Name);
+                    //Console.WriteLine(material.GetType().ToString());
                     serializer.Serialize(fileStream, material);
+                }
+                FileNames.Add(fileName);
+                index++;
+            }
+        }
+
+        public static async void TaskMySerializeAsync(List<WritingMaterial> materials)
+        {
+            XML.MyXmlSerializer serializer = new XML.MyXmlSerializer(typeof(WritingMaterial),
+                new Type[] { typeof(Pen), typeof(BallPen), typeof(GelPen), typeof(Brush), typeof(Pencil) });
+
+            string fileName;
+            int index = 0;
+            FileNames.Clear();
+            foreach (var material in materials)
+            {
+                fileName = index.ToString() + "my.xml";
+                using (StreamWriter writer = new StreamWriter(fileName))
+                {
+                    //Console.WriteLine(material.GetType().Name);///////////////////////////////////////////////////
+                    //Console.WriteLine(material.GetType().ToString());////////////////////////////////////////////////
+                    string serialized = serializer.Serialize(material);
+                    await writer.WriteLineAsync(serialized);
                 }
                 FileNames.Add(fileName);
                 index++;
@@ -211,10 +237,13 @@ namespace Serialization
                 new Type[] { typeof(Pen), typeof(BallPen), typeof(GelPen), typeof(Brush), typeof(Pencil)});
             materials?.Clear();
             WritingMaterial? material = null;
+
+            int k = 0;////////////////////////////////////////////////
             foreach(var filename in FileNames)
             {
                 using (FileStream fileStream = new FileStream(filename, FileMode.OpenOrCreate))
                 {
+                    Console.WriteLine(k++);///////////////////////////////////////////////////
                     material = deserializer.Deserialize(fileStream) as WritingMaterial;
                     if (material != null)
                         materials?.Add(material);
@@ -259,6 +288,7 @@ namespace Serialization
             tasks.Add(new TasksStructure(tasks.Count + 1, "show all", TaskShow));
             tasks.Add(new TasksStructure(tasks.Count + 1, "serialize", TaskSerialize));
             tasks.Add(new TasksStructure(tasks.Count + 1, "deserialize", TaskDeserialize));
+            tasks.Add(new TasksStructure(tasks.Count + 1, "myserialize", TaskMySerializeAsync));
 
             StringBuilder helloString = new StringBuilder();
             helloString.Append("Choose task: ");
