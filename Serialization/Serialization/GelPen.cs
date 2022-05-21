@@ -7,11 +7,10 @@ using System.Threading.Tasks;
 namespace Serialization
 {
     [Serializable]
-    public class GelPen: Pen
+    public class GelPen : Pen
     {
         public byte glitter_colour;
         public override string Name { get; set; }
-
         public GelPen()
         {
             Name = "Gel Pen";

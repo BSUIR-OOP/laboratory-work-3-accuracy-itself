@@ -6,9 +6,68 @@ namespace Serialization
 {
     class Program
     {
+        static void Main()
+        {
+            Console.WriteLine("hey");
+            GetFileNames(FileNames, "filenames.txt");
+
+            //getting constructors of materials
+            foreach (var materialtype in MaterialTypes)
+            {
+                Type type = Type.GetType(materialtype.FullName);
+                var constructor = type.GetConstructor(new Type[] { });
+                MaterialsInfo.Add(new MaterialsInfoStruct(materialtype.Name, constructor));
+            }
+
+            //creating task list
+            List<TasksStructure> tasks = new List<TasksStructure>();
+            tasks.Add(new TasksStructure(tasks.Count + 1, "add", TaskAdd));
+            tasks.Add(new TasksStructure(tasks.Count + 1, "remove", TaskRemove));
+            tasks.Add(new TasksStructure(tasks.Count + 1, "edit", TaskEdit));
+            tasks.Add(new TasksStructure(tasks.Count + 1, "show all", TaskShow));
+            tasks.Add(new TasksStructure(tasks.Count + 1, "serialize", TaskSerialize));
+            tasks.Add(new TasksStructure(tasks.Count + 1, "deserialize", TaskDeserialize));
+            tasks.Add(new TasksStructure(tasks.Count + 1, "myserialize", TaskMySerializeAsync));
+            tasks.Add(new TasksStructure(tasks.Count + 1, "mydeserialize", TaskMyDeserialize));
+
+            StringBuilder helloString = new StringBuilder();
+            helloString.Append("Choose task: ");
+            foreach (var task in tasks)
+            {
+                helloString.Append(task.number.ToString() + " - " + task.name + "  ");
+            }
+            helloString.Append((tasks.Count + 1).ToString() + " - exit");
+
+            //choosing task
+            while (true)
+            {
+                Console.WriteLine(helloString.ToString());
+                string s;
+                s = Console.ReadLine();
+                int taskNumber;
+                bool parsed = int.TryParse(s, out taskNumber);
+                if ((taskNumber > 0) && (taskNumber <= tasks.Count))
+                {
+                    tasks[taskNumber - 1].solver(Materials);
+                }
+                else if (taskNumber == tasks.Count + 1)
+                {
+                    Console.WriteLine("Goodbye, my friend!");
+                    break;
+                }
+                else
+                    Console.WriteLine("no such task!");
+
+                Console.WriteLine();
+            }
+
+            SaveFileNames(FileNames, "filenames.txt");
+        }
+
+
         //preparation for showing the list of available tasks
-        delegate void TaskSolver(List<WritingMaterial> materials);  
-        struct TasksStructure 
+        delegate void TaskSolver(List<WritingMaterial> materials);
+        struct TasksStructure
         {
             public int number;
             public string name;
@@ -35,7 +94,7 @@ namespace Serialization
                 }
             }
         }
-        
+
         //saves names of serialized files
         public static async void SaveFileNames(List<string> file_names, string file)
         {
@@ -45,7 +104,7 @@ namespace Serialization
                     await writer.WriteLineAsync(filename);
             }
         }
-        
+
         //adds object to list
         public static void TaskAdd(List<WritingMaterial> materials)
         {
@@ -53,7 +112,7 @@ namespace Serialization
             int index = 0;
             foreach (MaterialsInfoStruct materialinfo in MaterialsInfo)
             {
-                Console.Write(index.ToString() +  " - " + materialinfo.Name + "  ");
+                Console.Write(index.ToString() + " - " + materialinfo.Name + "  ");
                 index++;
             }
             Console.WriteLine();
@@ -83,7 +142,7 @@ namespace Serialization
                 Console.WriteLine(index.ToString() + ". " + material.Name);
                 Type type = material.GetType();
                 FieldInfo[] fields = type.GetFields();
-                
+
                 foreach (FieldInfo field in fields)
                 {
                     Console.Write(field.Name + "  ");
@@ -92,7 +151,7 @@ namespace Serialization
 
                 Console.WriteLine();
                 index++;
-            }  
+            }
         }
 
         //gets the index of object in list
@@ -124,41 +183,30 @@ namespace Serialization
 
         //edits the object
         public static bool EditMaterial(List<WritingMaterial> materials, int index, int field_number, string value)
-        {   
+        {
             Type materialtype = materials[index].GetType();
             FieldInfo[] fields = materialtype.GetFields();
-            //var b = 89;
-            //var cs = fields[field_number].FieldType.
-            
+            var field = fields[field_number];
+            Type? fieldtype = field.FieldType;
             try
             {
-                fields[field_number].SetValue(materials[index], double.Parse(value));
+                if (fieldtype == typeof(string))
+                    field.SetValue(materials[index], value);
+                else if (fieldtype == typeof(int))
+                    field.SetValue(materials[index], int.Parse(value));
+                else if (fieldtype == typeof(byte))
+                    field.SetValue(materials[index], byte.Parse(value));
+                else if (fieldtype == typeof(Boolean))
+                    field.SetValue(materials[index], Convert.ToBoolean(value));
+                else if (fieldtype == typeof(double))
+                    field.SetValue(materials[index], Double.Parse(value.Replace('.', ',')));
+                else return false;
             }
-            catch 
+            catch
             {
-                try
-                {
-                    fields[field_number].SetValue(materials[index], byte.Parse(value));
-                }
-                catch 
-                {
-                    try
-                    {
-                        fields[field_number].SetValue(materials[index], bool.Parse(value));
-                    }
-                    catch
-                    {
-                        try
-                        {
-                            fields[field_number].SetValue(materials[index], value);
-                        }
-                        catch
-                        {
-                            return false;
-                        }
-                    }
-                }
+                return false;
             }
+
             return true;
         }
 
@@ -172,7 +220,7 @@ namespace Serialization
                 Console.WriteLine("enter your field number");
                 string s = Console.ReadLine();
                 bool parsed = int.TryParse(s, out int fieldNumber);
-                if(parsed)
+                if (parsed)
                 {
                     Console.WriteLine("write value");
                     string value = Console.ReadLine();
@@ -188,69 +236,91 @@ namespace Serialization
         //XML serializing
         public static void TaskSerialize(List<WritingMaterial> materials)
         {
-            XmlSerializer serializer = new XmlSerializer(typeof(Pen));
+            XmlSerializer serializer = new XmlSerializer(typeof(List<WritingMaterial>),
+              new Type[] { typeof(Pen), typeof(BallPen), typeof(GelPen), typeof(Brush), typeof(Pencil) });
 
             string fileName;
             int index = 0;
             FileNames.Clear();
-            foreach (var material in materials)
+
+            fileName = index.ToString() + ".xml";
+            using (FileStream fileStream = new FileStream(fileName, FileMode.Create))
             {
-                fileName = index.ToString() + ".xml"; 
-                using (FileStream fileStream = new FileStream(fileName, FileMode.Create))
-                {
-                    //Console.WriteLine(material.GetType().Name);
-                    //Console.WriteLine(material.GetType().ToString());
-                    serializer.Serialize(fileStream, material);
-                }
-                FileNames.Add(fileName);
-                index++;
+                serializer.Serialize(fileStream, materials);
+                //Console.WriteLine(    );
             }
+
+            FileNames.Add(fileName);
         }
 
         public static async void TaskMySerializeAsync(List<WritingMaterial> materials)
         {
             XML.MyXmlSerializer serializer = new XML.MyXmlSerializer(typeof(WritingMaterial),
-                new Type[] { typeof(Pen), typeof(BallPen), typeof(GelPen), typeof(Brush), typeof(Pencil) });
+                new Type[] { typeof(BallPen), typeof(GelPen), typeof(Brush), typeof(Pencil) });
 
             string fileName;
             int index = 0;
             FileNames.Clear();
-            foreach (var material in materials)
+            /*foreach (var material in materials)
             {
                 fileName = index.ToString() + "my.xml";
                 using (StreamWriter writer = new StreamWriter(fileName))
                 {
-                    //Console.WriteLine(material.GetType().Name);///////////////////////////////////////////////////
-                    //Console.WriteLine(material.GetType().ToString());////////////////////////////////////////////////
                     string serialized = serializer.Serialize(material);
                     await writer.WriteLineAsync(serialized);
+                    
                 }
                 FileNames.Add(fileName);
                 index++;
+            }*/
+            fileName = index.ToString() + "my.xml";
+            using (StreamWriter writer = new StreamWriter(fileName))
+            {
+                string serialized = serializer.Serialize(materials);
+                await writer.WriteLineAsync(serialized);
+                FileNames.Add(fileName);
+            }
+        }
+
+        public static void TaskMyDeserialize(List<WritingMaterial> materials)
+        {
+            materials?.Clear();
+            XML.MyXmlSerializer deserializer = new XML.MyXmlSerializer(typeof(WritingMaterial),
+                new Type[] { typeof(Pen), typeof(BallPen), typeof(GelPen), typeof(Brush), typeof(Pencil) });
+
+            foreach (var filename in FileNames)
+            {
+                using (StreamReader reader = new StreamReader(filename))
+                {
+                    string fileString = reader.ReadToEnd();
+                    //Console.WriteLine(fileString);
+                    List<WritingMaterial>? deserialisedMaterials = deserializer.Deserialize(fileString) as List<WritingMaterial>;
+                    if (deserialisedMaterials != null)
+                        foreach (var material in deserialisedMaterials)
+                            materials?.Add(material);
+                }
             }
         }
 
         //XML deserializing
         public static void TaskDeserialize(List<WritingMaterial>? materials)
         {
-            XmlSerializer deserializer = new XmlSerializer(typeof(WritingMaterial), 
-                new Type[] { typeof(Pen), typeof(BallPen), typeof(GelPen), typeof(Brush), typeof(Pencil)});
+            XmlSerializer deserializer = new XmlSerializer(typeof(List<WritingMaterial>),
+                new Type[] { typeof(Pen), typeof(BallPen), typeof(GelPen), typeof(Brush), typeof(Pencil) });
             materials?.Clear();
-            WritingMaterial? material = null;
 
-            int k = 0;////////////////////////////////////////////////
-            foreach(var filename in FileNames)
+            foreach (var filename in FileNames)
             {
                 using (FileStream fileStream = new FileStream(filename, FileMode.OpenOrCreate))
                 {
-                    Console.WriteLine(k++);///////////////////////////////////////////////////
-                    material = deserializer.Deserialize(fileStream) as WritingMaterial;
-                    if (material != null)
-                        materials?.Add(material);
+                    List<WritingMaterial>? deserialisedMaterials = deserializer.Deserialize(fileStream) as List<WritingMaterial>;
+                    if (deserialisedMaterials != null)
+                        foreach (var material in deserialisedMaterials)
+                            materials?.Add(material);
                 }
             }
         }
-        
+
         //for gathering information about materials
         internal struct MaterialsInfoStruct
         {
@@ -266,62 +336,5 @@ namespace Serialization
         internal static List<MaterialsInfoStruct> MaterialsInfo = new List<MaterialsInfoStruct>();
         static List<WritingMaterial> Materials = new List<WritingMaterial>();
         static IEnumerable<Type> MaterialTypes = typeof(WritingMaterial).Assembly.ExportedTypes.Where(t => typeof(WritingMaterial).IsAssignableFrom(t) && t != typeof(WritingMaterial));
-
-        static void Main()
-        {
-            Console.WriteLine("hey");
-            GetFileNames(FileNames, "filenames.txt");
-
-            //getting constructors of materials
-            foreach(var materialtype in MaterialTypes)
-            {
-                Type type = Type.GetType(materialtype.FullName);
-                var constructor = type.GetConstructor(new Type[] { });
-                MaterialsInfo.Add(new MaterialsInfoStruct(materialtype.Name, constructor));
-            }
-            
-            //creating task list
-            List<TasksStructure> tasks = new List<TasksStructure>();
-            tasks.Add(new TasksStructure(tasks.Count + 1, "add", TaskAdd));
-            tasks.Add(new TasksStructure(tasks.Count + 1, "remove", TaskRemove));
-            tasks.Add(new TasksStructure(tasks.Count + 1, "edit", TaskEdit));
-            tasks.Add(new TasksStructure(tasks.Count + 1, "show all", TaskShow));
-            tasks.Add(new TasksStructure(tasks.Count + 1, "serialize", TaskSerialize));
-            tasks.Add(new TasksStructure(tasks.Count + 1, "deserialize", TaskDeserialize));
-            tasks.Add(new TasksStructure(tasks.Count + 1, "myserialize", TaskMySerializeAsync));
-
-            StringBuilder helloString = new StringBuilder();
-            helloString.Append("Choose task: ");
-            foreach (var task in tasks)
-            {
-                helloString.Append(task.number.ToString() + " - " + task.name + "  ");
-            }
-            helloString.Append((tasks.Count + 1).ToString() + " - exit");
-            
-            //choosing task
-            while (true)
-            {
-                Console.WriteLine(helloString.ToString());
-                string s;
-                s = Console.ReadLine();
-                int taskNumber;
-                bool parsed = int.TryParse(s, out taskNumber);
-                if ((taskNumber > 0) && (taskNumber <= tasks.Count))
-                {
-                    tasks[taskNumber - 1].solver(Materials);
-                }
-                else if (taskNumber == tasks.Count + 1)
-                {
-                    Console.WriteLine("Goodbye, my friend!");
-                    break;
-                }
-                else
-                    Console.WriteLine("no such task!");
-
-                Console.WriteLine();
-            }
-
-            SaveFileNames(FileNames, "filenames.txt");
-        }
     }
 }
